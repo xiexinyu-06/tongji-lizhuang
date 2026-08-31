@@ -118,6 +118,16 @@
         .quiz-option:disabled {
             cursor: default;
         }
+
+        /* 移动端适配 */
+        @media (max-width: 640px) {
+            .point { width: 12px; height: 12px; }
+            .point .label {
+                font-size: 11px;
+                padding: 1px 5px;
+                left: 18px;
+            }
+        }
     </style>
 </head>
 <body class="bg-stone-50 h-screen flex flex-col">
@@ -480,17 +490,41 @@
             imagePlaceholder.classList.add('hidden');
         }
 
-        // AI语音播报
+        // AI语音播报（支持中文音色 + 暂停/继续切换）
+        let voices = [];
+        function loadVoices() {
+            voices = window.speechSynthesis.getVoices();
+        }
+        function getChineseVoice() {
+            if (voices.length === 0) {
+                voices = window.speechSynthesis.getVoices();
+            }
+            return voices.find(v => v.lang && v.lang.toLowerCase().startsWith('zh')) || null;
+        }
+        loadVoices();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
         playBtn.onclick = () => {
             window.speechSynthesis.cancel();
             const text = document.getElementById('point-desc').textContent;
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'zh-CN';
             utterance.rate = 0.95;
+            const voice = getChineseVoice();
+            if (voice) utterance.voice = voice;
             window.speechSynthesis.speak(utterance);
+            pauseBtn.textContent = '暂停';
         };
         pauseBtn.onclick = () => {
-            window.speechSynthesis.pause();
+            if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+                window.speechSynthesis.pause();
+                pauseBtn.textContent = '继续';
+            } else if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+                pauseBtn.textContent = '暂停';
+            }
         };
 
         // ===== 趣味问答 =====
