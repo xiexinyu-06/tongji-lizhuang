@@ -84,13 +84,52 @@
             font-weight: 500;
             pointer-events: none;
         }
+
+        /* 趣味问答 */
+        .quiz-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 12px 16px;
+            border: 1px solid #d6d3d1;
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 14px;
+            color: #292524;
+            line-height: 1.5;
+        }
+        .quiz-option:hover:not(:disabled) {
+            background: #f5f5f4;
+            border-color: #a8a29e;
+        }
+        .quiz-option.correct {
+            background: #dcfce7;
+            border-color: #16a34a;
+            color: #166534;
+            font-weight: 600;
+        }
+        .quiz-option.wrong {
+            background: #fee2e2;
+            border-color: #dc2626;
+            color: #991b1b;
+        }
+        .quiz-option:disabled {
+            cursor: default;
+        }
     </style>
 </head>
 <body class="bg-stone-50 h-screen flex flex-col">
     <!-- 顶部标题栏 -->
-    <header class="bg-white shadow-sm px-6 py-4 flex-shrink-0">
-        <h1 class="text-xl md:text-2xl font-bold text-stone-800">山河行过 · 同济大学抗战西迁点位史料展</h1>
-        <p class="text-sm text-stone-500 mt-1">点击点位查看详情 · 支持AI语音播报</p>
+    <header class="bg-white shadow-sm px-6 py-4 flex-shrink-0 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+            <h1 class="text-xl md:text-2xl font-bold text-stone-800">山河行过 · 同济大学抗战西迁点位史料展</h1>
+            <p class="text-sm text-stone-500 mt-1">点击点位查看详情 · 支持AI语音播报</p>
+        </div>
+        <button id="quiz-btn" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition flex-shrink-0">
+            🎯 趣味问答
+        </button>
     </header>
 
     <!-- 主区域：点位总览 -->
@@ -148,6 +187,40 @@
 
     <!-- 底部遮罩 -->
     <div id="overlay" class="fixed inset-0 bg-black/30 z-40 hidden"></div>
+
+    <!-- 趣味问答弹层 -->
+    <div id="quiz-overlay" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/60" onclick="closeQuiz()"></div>
+        <div class="relative h-full flex items-center justify-center p-4 pointer-events-none">
+            <div class="pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+                <!-- 头部 -->
+                <div class="p-4 border-b flex items-center justify-between flex-shrink-0">
+                    <div class="flex items-center gap-4">
+                        <span id="quiz-progress" class="text-sm text-stone-600 font-medium"></span>
+                        <span id="quiz-score" class="text-sm text-red-600 font-bold"></span>
+                    </div>
+                    <button id="quiz-close-btn" class="text-stone-400 hover:text-stone-600 text-2xl leading-none">&times;</button>
+                </div>
+                <!-- 题目区 -->
+                <div id="quiz-question-area" class="flex-1 overflow-y-auto p-6">
+                    <h3 id="quiz-question" class="text-lg font-semibold text-stone-800 leading-relaxed"></h3>
+                    <div id="quiz-options" class="mt-5 space-y-3"></div>
+                    <p id="quiz-explain" class="hidden mt-4 text-sm text-stone-600 bg-stone-50 p-3 rounded-lg leading-relaxed"></p>
+                </div>
+                <!-- 结果区 -->
+                <div id="quiz-result" class="hidden flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
+                    <p class="text-sm text-stone-500">本次成绩</p>
+                    <p id="quiz-result-score" class="text-5xl font-bold text-red-600 mt-2"></p>
+                    <p id="quiz-result-comment" class="mt-4 text-stone-600 leading-relaxed"></p>
+                </div>
+                <!-- 底部按钮 -->
+                <div class="p-4 border-t flex-shrink-0">
+                    <button id="quiz-next-btn" class="hidden w-full py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition"></button>
+                    <button id="quiz-restart-btn" class="hidden w-full py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">再来一次</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         // 20个点位数据（已根据史料修正）
@@ -261,6 +334,82 @@
             }
         ];
 
+        // 趣味问答题库（12道，每次随机抽5道）
+        const quizBank = [
+            {
+                q: "1940年，李庄向同济大学发出著名的「十六字电文」，其完整内容是？",
+                options: ["同大迁川，李庄欢迎，一切需要，地方供给", "同大西迁，李庄欢迎，一切需要，地方供给", "同济迁川，李庄欢迎，全力支持，地方供给", "同大迁川，李庄欢迎，一切费用，地方供给"],
+                answer: 0,
+                explain: "1940年，李庄民众和乡绅齐倡义举，发出“同大迁川，李庄欢迎，一切需要，地方供给”十六字电文，温暖了同济师生的心。"
+            },
+            {
+                q: "西迁李庄时期，同济大学校本部办公地和大礼堂设在？",
+                options: ["东岳庙", "禹王宫（现慧光寺）", "南华宫", "祖师殿"],
+                answer: 1,
+                explain: "禹王宫（现慧光寺）是同济校本部办公地与大礼堂，学校重要会议、开学典礼均在此举办。"
+            },
+            {
+                q: "同济大学工学院和法学院共同的办学地是？",
+                options: ["南华宫", "祖师殿", "东岳庙", "紫云宫"],
+                answer: 2,
+                explain: "东岳庙既是工学院、也是法学院的办学地，同济由此发展成为涵盖理工医法的综合性大学。"
+            },
+            {
+                q: "同济医学院的办学地是？",
+                options: ["祖师殿（真武宫）", "南华宫", "东岳庙", "张家祠"],
+                answer: 0,
+                explain: "医学院设在祖师殿（真武宫），1941年6月迁往宜宾市区。"
+            },
+            {
+                q: "同济理学院设在？童第周曾在这里开展胚胎学研究。",
+                options: ["东岳庙", "南华宫", "紫云宫", "禹王宫"],
+                answer: 1,
+                explain: "理学院设在南华宫，童第周等学者在条件极端艰苦的情况下做出了国际水准的胚胎学成果。"
+            },
+            {
+                q: "同济大学图书馆的驻地是？",
+                options: ["紫云宫（王爷庙）", "文昌宫", "南华宫", "禹王宫"],
+                answer: 0,
+                explain: "紫云宫又称王爷庙，西迁时期为同济图书馆驻地，保障战时图书文献流转。"
+            },
+            {
+                q: "乡绅罗南陔将祖祠「集成公祠」无偿借给同济哪所机构办学？",
+                options: ["附设高级工业职业学校", "医学院", "法学院", "图书馆"],
+                answer: 0,
+                explain: "罗南陔以其祖集成公祠相假、且不受租金，供同济附设高级工业职业学校办学。"
+            },
+            {
+                q: "同济第13任校长、中国病理学的开创者和奠基人是？",
+                options: ["徐诵明", "罗南陔", "童第周", "喻大翔"],
+                answer: 0,
+                explain: "徐诵明（1890-1991）是同济第13任校长，著名教育家和病理学家。"
+            },
+            {
+                q: "「徐祝罗匾」（同济大学感赠罗南陔木匾）是？",
+                options: ["国家二级文物，题刻于1945年", "国家一级文物，题刻于1945年", "国家二级文物，题刻于1946年", "国家三级文物，题刻于1944年"],
+                answer: 0,
+                explain: "该匾是国家二级文物，题刻于民国三十四年（1945年），赠予李庄乡绅罗南陔。"
+            },
+            {
+                q: "李庄同济纪念碑建于哪一年？碑文由谁撰写？",
+                options: ["2006年，喻大翔", "2000年，喻大翔", "2006年，徐诵明", "2010年，章明"],
+                answer: 0,
+                explain: "纪念碑建于2006年，碑文415字，由同济大学文法学院教授喻大翔撰写。"
+            },
+            {
+                q: "纪念碑文中「羊街军号响」指的是什么历史场景？",
+                options: ["同济学子参军集结", "开学典礼", "校庆活动", "渡江演习"],
+                answer: 0,
+                explain: "羊街曾是战时同济学子参军集结地，“羊街军号响”是当年投笔从戎的历史回响。"
+            },
+            {
+                q: "同济大学迁入李庄、以及抗战胜利后回迁上海的年份分别是？",
+                options: ["1940年迁入，1946年回迁", "1939年迁入，1945年回迁", "1941年迁入，1946年回迁", "1940年迁入，1947年回迁"],
+                answer: 0,
+                explain: "1940年秋同济迁入李庄，1946年抗战胜利后陆续回迁上海。"
+            }
+        ];
+
         const container = document.getElementById('points-container');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
@@ -311,6 +460,9 @@
             window.speechSynthesis.cancel();
             pointElements.forEach(el => el.classList.remove('active'));
         }
+        closeBtn.onclick = closeSidebar;
+        overlay.onclick = closeSidebar;
+
         // 加载点位配图（支持 jpg/png 及大小写自动回退）
         function loadPointImage(point) {
             let idx = 0;
@@ -327,8 +479,6 @@
             pointImage.classList.remove('hidden');
             imagePlaceholder.classList.add('hidden');
         }
-        closeBtn.onclick = closeSidebar;
-        overlay.onclick = closeSidebar;
 
         // AI语音播报
         playBtn.onclick = () => {
@@ -342,6 +492,118 @@
         pauseBtn.onclick = () => {
             window.speechSynthesis.pause();
         };
+
+        // ===== 趣味问答 =====
+        const quizBtn = document.getElementById('quiz-btn');
+        const quizOverlay = document.getElementById('quiz-overlay');
+        const quizCloseBtn = document.getElementById('quiz-close-btn');
+        const quizQuestionArea = document.getElementById('quiz-question-area');
+        const quizQuestionEl = document.getElementById('quiz-question');
+        const quizOptionsEl = document.getElementById('quiz-options');
+        const quizExplainEl = document.getElementById('quiz-explain');
+        const quizProgressEl = document.getElementById('quiz-progress');
+        const quizScoreEl = document.getElementById('quiz-score');
+        const quizNextBtn = document.getElementById('quiz-next-btn');
+        const quizResultEl = document.getElementById('quiz-result');
+        const quizResultScoreEl = document.getElementById('quiz-result-score');
+        const quizResultCommentEl = document.getElementById('quiz-result-comment');
+        const quizRestartBtn = document.getElementById('quiz-restart-btn');
+
+        let quizQuestions = [];
+        let quizIndex = 0;
+        let quizScore = 0;
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function openQuiz() {
+            quizQuestions = shuffle(quizBank).slice(0, 5);
+            quizIndex = 0;
+            quizScore = 0;
+            quizResultEl.classList.add('hidden');
+            quizQuestionArea.classList.remove('hidden');
+            quizNextBtn.classList.remove('hidden');
+            quizRestartBtn.classList.add('hidden');
+            quizOverlay.classList.remove('hidden');
+            window.speechSynthesis.cancel();
+            renderQuiz();
+        }
+
+        function closeQuiz() {
+            quizOverlay.classList.add('hidden');
+        }
+
+        function renderQuiz() {
+            const q = quizQuestions[quizIndex];
+            quizProgressEl.textContent = '第 ' + (quizIndex + 1) + ' / ' + quizQuestions.length + ' 题';
+            quizScoreEl.textContent = '得分：' + quizScore;
+            quizQuestionEl.textContent = q.q;
+            quizExplainEl.classList.add('hidden');
+            quizNextBtn.classList.add('hidden');
+            quizOptionsEl.innerHTML = '';
+            q.options.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-option';
+                btn.textContent = opt;
+                btn.onclick = () => answerQuiz(i);
+                quizOptionsEl.appendChild(btn);
+            });
+        }
+
+        function answerQuiz(choice) {
+            const q = quizQuestions[quizIndex];
+            const btns = quizOptionsEl.querySelectorAll('button');
+            btns.forEach(b => { b.disabled = true; });
+            if (choice === q.answer) {
+                quizScore++;
+                btns[choice].classList.add('correct');
+            } else {
+                btns[choice].classList.add('wrong');
+                btns[q.answer].classList.add('correct');
+            }
+            quizScoreEl.textContent = '得分：' + quizScore;
+            quizExplainEl.textContent = '解析：' + q.explain;
+            quizExplainEl.classList.remove('hidden');
+            quizNextBtn.textContent = (quizIndex < quizQuestions.length - 1) ? '下一题' : '查看结果';
+            quizNextBtn.classList.remove('hidden');
+        }
+
+        function nextQuiz() {
+            quizIndex++;
+            if (quizIndex >= quizQuestions.length) {
+                showResult();
+            } else {
+                renderQuiz();
+            }
+        }
+
+        function showResult() {
+            quizQuestionArea.classList.add('hidden');
+            quizNextBtn.classList.add('hidden');
+            quizResultScoreEl.textContent = quizScore + ' / ' + quizQuestions.length;
+            let comment;
+            if (quizScore === 5) {
+                comment = '满分！你是当之无愧的同济校史达人！';
+            } else if (quizScore >= 3) {
+                comment = '很不错！再逛逛点位，冲击满分吧。';
+            } else {
+                comment = '别灰心，回到点位图里找找答案，再来挑战一次！';
+            }
+            quizResultCommentEl.textContent = comment;
+            quizResultEl.classList.remove('hidden');
+            quizRestartBtn.classList.remove('hidden');
+        }
+
+        quizBtn.onclick = openQuiz;
+        quizCloseBtn.onclick = closeQuiz;
+        quizNextBtn.onclick = nextQuiz;
+        quizRestartBtn.onclick = openQuiz;
     </script>
 </body>
 </html>
